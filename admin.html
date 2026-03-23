@@ -160,6 +160,16 @@ header span { color: rgba(255,255,255,0.7); font-size: 13px; }
 var URL = 'https://ylezmayjfkrjysvfkayc.supabase.co';
 var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZXptYXlqZmtyanlzdmZrYXljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzM4NTYxMCwiZXhwIjoyMDg4OTYxNjEwfQ.JSlGnrDnO0B7FVhN78eLSHuYq6yGZAQ4nDhcWbhoeb8';
 
+var PASS = 'famiko2026';
+if (sessionStorage.getItem('auth') !== PASS) {
+  var input = prompt('Mot de passe admin :');
+  if (input !== PASS) {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#881337;font-size:18px;">Accès refusé</div>';
+    throw new Error('Accès refusé');
+  }
+  sessionStorage.setItem('auth', PASS);
+}
+
 var all = [], current = null, delId = null;
 
 // API
