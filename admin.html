@@ -235,11 +235,35 @@ document.getElementById('btnNew').addEventListener('click', function() { current
 var CATS = ['','Sensoriel','Créative','Motricité','Motricité fine','Calme','Nature','Scientifique','Dév. perso','Ensemble'];
 var AGES = [['0-6m','0–6 mois'],['6-12m','6–12 mois'],['1-3','1–3 ans'],['3-6','3–6 ans'],['6-9','6–9 ans'],['9+','9 ans+']];
 
+function parseField(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    if (val.length === 1 && typeof val[0] === 'string' && val[0].startsWith('[')) {
+      try { val = JSON.parse(val[0]); } catch(e) {}
+    }
+    if (Array.isArray(val)) {
+      return val.map(function(s) {
+        while (typeof s === 'string' && (s.startsWith('[') || s.startsWith('"'))) {
+          try { var p = JSON.parse(s); s = p; } catch(e) { break; }
+        }
+        return Array.isArray(s) ? s.join('\n') : String(s);
+      }).filter(Boolean);
+    }
+  }
+  if (typeof val === 'string') {
+    try { return parseField(JSON.parse(val)); } catch(e) {}
+    return val.split('\n').filter(Boolean);
+  }
+  return [];
+}
+
 function e(s) { return (s||'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 function renderForm(a) {
   var isNew = !a;
   var ages = a && a.age_ranges ? a.age_ranges : [];
+  var stepsClean = parseField(a ? a.steps : []);
+  var matsClean = parseField(a ? a.materials : []);
 
   document.getElementById('detail').innerHTML =
     '<div class="form-head">' +
@@ -266,8 +290,8 @@ function renderForm(a) {
       '<div class="fg"><label>Catégorie</label><select id="fCat">'+CATS.map(function(c){return '<option value="'+c+'"'+(a&&a.category===c?' selected':'')+'>'+( c||'Choisir…')+'</option>';}).join('')+'</select></div>' +
       '<div class="fg"><label>Lieu</label><select id="fLoc"><option value="indoor"'+(a&&a.location==='indoor'?' selected':'')+'>🏠 Intérieur</option><option value="outdoor"'+(a&&a.location==='outdoor'?' selected':'')+'>🌿 Extérieur</option><option value="both"'+(a&&a.location==='both'?' selected':'')+'>🌍 Les deux</option></select></div>' +
       '<div class="fg full"><label>Tranches d\'âge</label><div class="pills" id="agePills">'+AGES.map(function(ag){return '<span class="pill'+(ages.indexOf(ag[0])!==-1?' on':'')+'" data-v="'+ag[0]+'">'+ag[1]+'</span>';}).join('')+'</div></div>' +
-      '<div class="fg full"><label>Matériel (un par ligne)</label><textarea id="fMat" rows="4">'+e(a&&a.materials?(Array.isArray(a.materials)?a.materials.join('\n'):a.materials):'')+' </textarea></div>' +
-      '<div class="fg full"><label>Étapes (une par ligne)</label><textarea id="fSteps" rows="5">'+e(a&&a.steps?(Array.isArray(a.steps)?a.steps.join('\n'):a.steps):'')+'</textarea></div>' +
+      '<div class="fg full"><label>Matériel (un par ligne)</label><textarea id="fMat" rows="4">'+e(matsClean.join('\n'))+'</textarea></div>' +
+      '<div class="fg full"><label>Étapes (une par ligne)</label><textarea id="fSteps" rows="5">'+e(stepsClean.join('\n'))+'</textarea></div>' +
       '<div class="fg full"><label>Conseil psychomotricien</label><textarea id="fPsycho" rows="3">'+e(a?a.psycho_tip:'')+'</textarea></div>' +
       '<div class="fg full"><label>Statut</label><div class="toggle-row"><label class="toggle"><input type="checkbox" id="fPrem"'+(a&&a.is_premium?' checked':'')+' ><span class="track"></span></label><span id="premLbl">'+(a&&a.is_premium?'Premium 🔒':'Gratuit')+'</span></div></div>' +
     '</div>';
