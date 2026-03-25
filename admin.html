@@ -199,6 +199,10 @@ function load() {
   api('activities?select=*&order=title.asc').then(function(data) {
     all = data || [];
     document.getElementById('cnt').textContent = all.length;
+    if (current) {
+      var updated = all.find(function(a) { return a.id === current.id; });
+      if (updated) current = updated;
+    }
     renderList(all);
   }).catch(function(e) {
     document.getElementById('list').innerHTML = '<div class="empty-list">⚠️ ' + e.message + '</div>';
@@ -349,7 +353,7 @@ function saveForm(id, imageUrl) {
   var p = id ? api('activities?id=eq.'+id, 'PATCH', payload) : api('activities', 'POST', payload);
   p.then(function(res) {
     toast(id ? 'Activité mise à jour ✓' : 'Activité créée ✓', 'ok');
-    if (!id && res && res[0]) current = res[0];
+    if (res && res[0]) current = res[0];
     load();
   }).catch(function(err){ toast('Erreur : '+err.message, 'err'); });
 }
