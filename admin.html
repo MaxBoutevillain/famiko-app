@@ -237,14 +237,14 @@ var AGES = [['0-6m','0–6 mois'],['6-12m','6–12 mois'],['1-3','1–3 ans'],['
 
 function parseField(val) {
   if (!val) return [];
+  if (Array.isArray(val)) return val.map(String).filter(Boolean);
   try {
-    var parsed = typeof val === 'string' ? JSON.parse(val) : val;
+    var parsed = JSON.parse(val);
     while (typeof parsed === 'string') { parsed = JSON.parse(parsed); }
     if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
     return [String(parsed)];
   } catch(e) {
-    if (typeof val === 'string') return val.split('\n').filter(Boolean);
-    return [];
+    return val.split('\n').filter(Boolean);
   }
 }
 
@@ -372,7 +372,7 @@ function saveForm(id, imageUrl) {
     location: document.getElementById('fLoc').value,
     duration: parseInt(document.getElementById('fDur').value)||null,
     age_ranges: ages,
-    materials: JSON.stringify(document.getElementById('fMat').value.split('\n').map(function(s){return s.trim();}).filter(Boolean)),
+    materials: document.getElementById('fMat').value.split('\n').map(function(s){return s.trim();}).filter(Boolean),
     steps: JSON.stringify(document.getElementById('fSteps').value.split('\n').map(function(s){return s.trim();}).filter(Boolean)),
     psycho_tip: document.getElementById('fPsycho').value.trim(),
     is_premium: document.getElementById('fPrem').checked,
