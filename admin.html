@@ -217,7 +217,11 @@ function renderList(items) {
   items.forEach(function(a) {
     var d = document.createElement('div');
     d.className = 'item' + (current && current.id === a.id ? ' active' : '');
-    d.innerHTML = '<div class="emoji">'+(a.emoji||'📌')+'</div><div class="info"><strong>'+(a.title||'—')+'</strong><span>'+(a.category||'')+' &nbsp;<span class="badge '+(a.is_premium?'badge-p':'badge-f')+'">'+(a.is_premium?'Premium':'Gratuit')+'</span></span></div>';
+    var moodsDisplay = (a.moods || []).map(function(m) {
+       var found = MOODS.find(function(M) { return M.id === m; });
+       return found ? found.emoji + ' ' + found.short : m;
+     }).join(' · ') || '—';
+     d.innerHTML = '<div class="emoji">'+(a.emoji||'📌')+'</div><div class="info"><strong>'+(a.title||'—')+'</strong><span>'+moodsDisplay+' &nbsp;<span class="badge '+(a.is_premium?'badge-p':'badge-f')+'">'+(a.is_premium?'Premium':'Gratuit')+'</span></span></div>';
     d.addEventListener('click', function() { current = a; renderList(filterItems()); renderForm(a); });
     el.appendChild(d);
   });
@@ -225,14 +229,29 @@ function renderList(items) {
 
 function filterItems() {
   var q = document.getElementById('q').value.toLowerCase();
-  return all.filter(function(a) { return !q || (a.title||'').toLowerCase().includes(q) || (a.category||'').toLowerCase().includes(q); });
+  return all.filter(function(a) {
+     if (!q) return true;
+     var matchTitle = (a.title||'').toLowerCase().includes(q);
+     var matchMood = (a.moods || []).some(function(m) {
+       var found = MOODS.find(function(M) { return M.id === m; });
+       return found && (found.label.toLowerCase().includes(q) || found.short.toLowerCase().includes(q));
+     });
+     return matchTitle || matchMood;
+   });
 }
 
 document.getElementById('q').addEventListener('input', function() { renderList(filterItems()); });
 document.getElementById('btnNew').addEventListener('click', function() { current = null; renderList(filterItems()); renderForm(null); });
 
 // Render form
-var CATS = ['','Sensoriel','Créative','Motricité','Motricité fine','Calme','Nature','Scientifique','Dév. perso','Ensemble'];
+var MOODS = [
+     { id: 'calm',     label: 'Se poser ensemble',    emoji: '🌙', short: 'Doux' },
+     { id: 'move',     label: 'Se défouler',          emoji: '⚡', short: 'Défouler' },
+     { id: 'create',   label: 'Créer avec les mains', emoji: '🎨', short: 'Créer' },
+     { id: 'explore',  label: 'Explorer le monde',    emoji: '🔍', short: 'Explorer' },
+     { id: 'outdoor',  label: 'Sortir prendre l\'air', emoji: '🌿', short: 'Dehors' },
+     { id: 'surprise', label: 'Me surprendre',        emoji: '✨', short: 'Surprise' },
+   ];
 var AGES = [['0-6m','0–6 mois'],['6-12m','6–12 mois'],['1-3','1–3 ans'],['3-6','3–6 ans'],['6-9','6–9 ans'],['9+','9 ans+']];
 
 function parseField(val) {
@@ -278,7 +297,7 @@ function renderForm(a) {
       '<div class="fg full"><label>Titre</label><input id="fTitle" value="'+e(a?a.title:'')+'" placeholder="Nom de l\'activité"></div>' +
       '<div class="fg full"><label>Description</label><textarea id="fDesc" rows="3">'+e(a?a.description:'')+'</textarea></div>' +
       '<div class="fg full"><label>Hook enfant</label><input id="fHook" value="'+e(a?a.hook_child:'')+'" placeholder="Tu veux construire quelque chose ?"></div>' +
-      '<div class="fg"><label>Catégorie</label><select id="fCat">'+CATS.map(function(c){return '<option value="'+c+'"'+(a&&a.category===c?' selected':'')+'>'+( c||'Choisir…')+'</option>';}).join('')+'</select></div>' +
+      '<div class="fg full"><label>Moods (1 ou plusieurs)</label><div class="pills" id="moodPills">'+MOODS.map(function(M){var sel=(a&&a.moods&&a.moods.indexOf(M.id)!==-1);return '<span class="pill'+(sel?' on':'')+'" data-v="'+M.id+'">'+M.emoji+' '+M.label+'</span>';}).join('')+'</div></div>' +
       '<div class="fg"><label>Lieu</label><select id="fLoc"><option value="indoor"'+(a&&a.location==='indoor'?' selected':'')+'>🏠 Intérieur</option><option value="outdoor"'+(a&&a.location==='outdoor'?' selected':'')+'>🌿 Extérieur</option><option value="both"'+(a&&a.location==='both'?' selected':'')+'>🌍 Les deux</option></select></div>' +
       '<div class="fg full"><label>Tranches d\'âge</label><div class="pills" id="agePills">'+AGES.map(function(ag){return '<span class="pill'+(ages.indexOf(ag[0])!==-1?' on':'')+'" data-v="'+ag[0]+'">'+ag[1]+'</span>';}).join('')+'</div></div>' +
       '<div class="fg full"><label>Matériel (un par ligne)</label><textarea id="fMat" rows="4">'+e(matsClean.join('\n'))+'</textarea></div>' +
@@ -304,6 +323,10 @@ function renderForm(a) {
     document.getElementById('premLbl').textContent = this.checked ? 'Premium 🔒' : 'Gratuit';
   });
   document.getElementById('agePills').addEventListener('click', function(ev) {
+    var p = ev.target.closest('.pill');
+    if (p) p.classList.toggle('on');
+  });
+  document.getElementById('moodPills').addEventListener('click', function(ev) {
     var p = ev.target.closest('.pill');
     if (p) p.classList.toggle('on');
   });
@@ -368,7 +391,7 @@ function saveForm(id, imageUrl) {
     title: title,
     description: document.getElementById('fDesc').value.trim(),
     hook_child: document.getElementById('fHook').value.trim(),
-    category: document.getElementById('fCat').value,
+    moods: Array.from(document.querySelectorAll('#moodPills .pill.on')).map(function(p) { return p.dataset.v; }),
     location: document.getElementById('fLoc').value,
     duration: parseInt(document.getElementById('fDur').value)||null,
     age_ranges: ages,
