@@ -115,6 +115,40 @@ header span { color: rgba(255,255,255,0.7); font-size: 13px; }
 .photo-info small { font-size: 12px; color: var(--muted); }
 .btn-upload { padding: 7px 14px; border-radius: 7px; background: var(--primary-light); color: var(--primary); border: none; font: 600 12px 'Inter', sans-serif; cursor: pointer; }
 .uploading { opacity: .6; pointer-events: none; }
+
+/* SECTIONS */
+.section { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; max-width: 760px; }
+.section-title { font-family: 'Caprasimo', cursive; font-size: 15px; color: var(--primary); display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+.section-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary-light); color: var(--primary); font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif; flex-shrink: 0; }
+.section-desc { font-size: 12px; color: var(--muted); margin: 2px 0 16px 31px; }
+
+/* SEGMENTED CONTROLS */
+.seg { display: flex; flex-wrap: wrap; gap: 7px; }
+.seg-btn { padding: 7px 13px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12.5px; cursor: pointer; background: var(--white); color: var(--text); transition: all .12s; user-select: none; }
+.seg-btn:hover { border-color: var(--primary); }
+.seg-btn.on { background: var(--primary); border-color: var(--primary); color: white; font-weight: 600; }
+
+/* DEV SCORES */
+.score-legend { font-size: 11.5px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; line-height: 1.7; }
+.score-grid { display: flex; flex-direction: column; }
+.score-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.score-row:last-child { border-bottom: none; }
+.score-label { font-size: 13px; font-weight: 500; flex: 1; }
+.score-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.score-btn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid var(--border); background: white; font: 600 13px 'Inter', sans-serif; cursor: pointer; color: var(--muted); transition: all .12s; }
+.score-btn:hover { border-color: var(--primary); }
+.score-btn.on { background: var(--primary); border-color: var(--primary); color: white; }
+.top-dims { font-size: 12.5px; color: var(--primary); background: var(--primary-light); border-radius: 8px; padding: 9px 12px; margin-top: 14px; font-weight: 500; }
+
+/* TAGS */
+.tags-box { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1.5px solid var(--border); border-radius: 8px; background: white; align-items: center; }
+.tags-box:focus-within { border-color: var(--primary); }
+.tag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--primary-light); color: var(--primary); border-radius: 14px; padding: 4px 8px 4px 11px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.tag-chip button { border: none; background: none; color: var(--primary); cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+.tags-input { border: none; outline: none; flex: 1; min-width: 140px; font: 13px 'Inter', sans-serif; padding: 4px; background: transparent; }
+
+/* ADAPTATIONS */
+.adapt-empty { font-size: 12.5px; color: var(--muted); font-style: italic; }
 </style>
 </head>
 <body>
@@ -171,6 +205,9 @@ if (sessionStorage.getItem('auth') !== PASS) {
 }
 
 var all = [], current = null, delId = null;
+// Références partagées entre renderForm() et saveForm() : mêmes objets/tableaux
+// mutés en place, donc toujours à jour au moment de la sauvegarde.
+var formAdaptData = {}, formTags = [];
 
 // API
 function api(path, method, body) {
@@ -253,6 +290,26 @@ var MOODS = [
      { id: 'surprise', label: 'Me surprendre',        emoji: '✨', short: 'Surprise' },
    ];
 var AGES = [['0-6m','0–6 mois'],['6-12m','6–12 mois'],['1-3','1–3 ans'],['3-6','3–6 ans'],['6-9','6–9 ans'],['9+','9 ans+']];
+var AGE_LABELS = {}; AGES.forEach(function(ag){ AGE_LABELS[ag[0]] = ag[1]; });
+
+// Nouveaux attributs de contexte (section "Quand la proposer")
+var INTENSITY    = [['calm','😌 Calme'],['moderate','🙂 Modérée'],['high','🔥 Élevée']];
+var PREP         = [['none','Aucune'],['light','Légère'],['required','Nécessaire']];
+var INVOLVEMENT  = [['low','Faible'],['occasional','Ponctuelle'],['active','Active']];
+var DIFFICULTY   = [['1','1'],['2','2'],['3','3']];
+var FREEDOM      = [['guided','Guidée'],['semi_free','Semi-libre'],['free','Libre']];
+
+// Référentiel Développement & éveil (section "Ce qu'elle fait explorer")
+var DEV_DIMS = [
+  { id: 'grossMotor',            label: 'Motricité globale' },
+  { id: 'balanceCoordination',   label: 'Équilibre & coordination' },
+  { id: 'fineMotor',             label: 'Motricité fine & manipulation' },
+  { id: 'spatialBodyAwareness',  label: 'Repérage spatial & corps' },
+  { id: 'attentionOrganization', label: 'Attention & organisation' },
+  { id: 'languageExpression',    label: 'Langage & expression' },
+  { id: 'imaginationCreativity', label: 'Imagination & créativité' },
+  { id: 'autonomyConfidence',    label: 'Autonomie & confiance' }
+];
 
 function parseField(val) {
   if (!val) return [];
@@ -267,13 +324,79 @@ function parseField(val) {
   }
 }
 
+// Comme parseField, mais pour un objet JSON. Gère à la fois une colonne jsonb
+// (déjà un objet côté PostgREST, ex. dev_scores) et une colonne text contenant
+// du JSON stringifié (ex. age_adaptations). Ne remplit jamais de valeur par
+// défaut : une clé absente reste absente.
+function parseObj(val) {
+  if (!val) return {};
+  if (typeof val === 'object' && !Array.isArray(val)) return val;
+  try {
+    var parsed = JSON.parse(val);
+    while (typeof parsed === 'string') { parsed = JSON.parse(parsed); }
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch(err) { return {}; }
+}
+
 function e(s) { return (s||'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// Segmented control générique : un groupe de boutons exclusifs, re-cliquer sur
+// le bouton actif le désélectionne (aucune valeur inventée pour les anciennes activités).
+function renderSeg(name, options, selected) {
+  return '<div class="seg" data-name="'+name+'">' + options.map(function(o) {
+    return '<span class="seg-btn'+(selected===o[0]?' on':'')+'" data-v="'+o[0]+'">'+o[1]+'</span>';
+  }).join('') + '</div>';
+}
+function segVal(name) {
+  var b = document.querySelector('.seg[data-name="'+name+'"] .seg-btn.on');
+  return b ? b.dataset.v : null;
+}
+
+function renderScoreRow(dim, val) {
+  return '<div class="score-row"><span class="score-label">'+dim.label+'</span>' +
+    '<div class="score-btns" data-dim="'+dim.id+'">' +
+      [0,1,2,3].map(function(n) { return '<button type="button" class="score-btn'+(val===n?' on':'')+'" data-v="'+n+'">'+n+'</button>'; }).join('') +
+    '</div></div>';
+}
+function getScores() {
+  var out = {};
+  document.querySelectorAll('.score-btns').forEach(function(box) {
+    var on = box.querySelector('.score-btn.on');
+    if (on) out[box.dataset.dim] = parseInt(on.dataset.v, 10);
+  });
+  return out;
+}
+// Les 3 dimensions principales sont déduites des scores les plus hauts, jamais stockées.
+function topDimsText(scores) {
+  var entries = DEV_DIMS
+    .map(function(d, idx) { return { label: d.label, val: scores[d.id] != null ? scores[d.id] : -1, idx: idx }; })
+    .filter(function(x) { return x.val > 0; })
+    .sort(function(x, y) { return y.val - x.val || x.idx - y.idx; })
+    .slice(0, 3);
+  if (!entries.length) return 'Aucune dimension notée pour le moment.';
+  return '🎯 Dimensions principales : ' + entries.map(function(x) { return x.label + ' (' + x.val + ')'; }).join(' · ');
+}
+
+function renderAdaptBlock(selectedAges, adaptData) {
+  if (!selectedAges.length) return '<p class="adapt-empty">Sélectionne au moins une tranche d\'âge ci-dessus pour saisir une adaptation.</p>';
+  return selectedAges.map(function(ag) {
+    return '<div class="fg full" style="margin-bottom:10px"><label>Adaptation ' + AGE_LABELS[ag] + '</label>' +
+      '<textarea class="adapt-ta" data-age="'+ag+'" rows="2" placeholder="Comment adapter pour '+AGE_LABELS[ag]+' ?">'+e(adaptData[ag]||'')+'</textarea></div>';
+  }).join('');
+}
 
 function renderForm(a) {
   var isNew = !a;
   var ages = a && a.age_ranges ? a.age_ranges : [];
   var stepsClean = parseField(a ? a.steps : []);
   var matsClean = parseField(a ? a.materials : []);
+  var tagsArr = formTags = parseField(a ? a.expert_tags : []);
+  var adaptData = formAdaptData = parseObj(a ? a.age_adaptations : null);
+  var scores = parseObj(a ? a.dev_scores : null);
+  // Durée : les anciennes activités n'ont qu'une valeur unique `duration`.
+  // Tant que duration_min/duration_max ne sont pas renseignés, on l'utilise pour les deux.
+  var durMin = a && a.duration_min != null ? a.duration_min : (a && a.duration != null ? a.duration : '');
+  var durMax = a && a.duration_max != null ? a.duration_max : (a && a.duration != null ? a.duration : '');
 
   document.getElementById('detail').innerHTML =
     '<div class="form-head">' +
@@ -283,40 +406,88 @@ function renderForm(a) {
         '<button class="btn btn-save" id="fSave">💾 Enregistrer</button>' +
       '</div>' +
     '</div>' +
-    '<div class="grid">' +
-      '<div class="fg"><label>Emoji</label><input id="fEmoji" value="'+e(a?a.emoji:'')+'" placeholder="🎨" maxlength="4"></div>' +
-      '<div class="fg"><label>Durée (min)</label><input id="fDur" type="number" value="'+(a&&a.duration?a.duration:'')+'" placeholder="15" min="1"></div>' +
-      '<div class="fg full"><label>Photo</label>' +
-        '<div class="photo-zone" id="photoZone" onclick="document.getElementById(\'fileInput\').click()">' +
-          (a&&a.image_url ? '<img class="photo-preview" id="photoPreview" src="'+e(a.image_url)+'">' : '<div class="photo-placeholder" id="photoPreview">🖼️</div>') +
-          '<div class="photo-info"><p id="photoName">'+(a&&a.image_url?'Photo actuelle':'Aucune photo')+' </p><small>JPG ou PNG · 2 Mo max</small></div>' +
-          '<button class="btn-upload" type="button">Choisir</button>' +
+
+    // SECTION 1 — L'activité
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">1</span>L\'activité</div>' +
+      '<div class="section-desc">Ce que le parent et l\'enfant voient</div>' +
+      '<div class="grid">' +
+        '<div class="fg"><label>Emoji</label><input id="fEmoji" value="'+e(a?a.emoji:'')+'" placeholder="🎨" maxlength="4"></div>' +
+        '<div class="fg"></div>' +
+        '<div class="fg full"><label>Photo</label>' +
+          '<div class="photo-zone" id="photoZone" onclick="document.getElementById(\'fileInput\').click()">' +
+            (a&&a.image_url ? '<img class="photo-preview" id="photoPreview" src="'+e(a.image_url)+'">' : '<div class="photo-placeholder" id="photoPreview">🖼️</div>') +
+            '<div class="photo-info"><p id="photoName">'+(a&&a.image_url?'Photo actuelle':'Aucune photo')+' </p><small>JPG ou PNG · 2 Mo max</small></div>' +
+            '<button class="btn-upload" type="button">Choisir</button>' +
+          '</div>' +
+          '<input type="file" id="fileInput" accept="image/*" style="display:none">' +
         '</div>' +
-        '<input type="file" id="fileInput" accept="image/*" style="display:none">' +
+        '<div class="fg full"><label>Titre</label><input id="fTitle" value="'+e(a?a.title:'')+'" placeholder="Nom de l\'activité"></div>' +
+        '<div class="fg full"><label>Description</label><textarea id="fDesc" rows="3">'+e(a?a.description:'')+'</textarea></div>' +
+        '<div class="fg full"><label>Hook enfant</label><input id="fHook" value="'+e(a?a.hook_child:'')+'" placeholder="Tu veux construire quelque chose ?"></div>' +
       '</div>' +
-      '<div class="fg full"><label>Titre</label><input id="fTitle" value="'+e(a?a.title:'')+'" placeholder="Nom de l\'activité"></div>' +
-      '<div class="fg full"><label>Description</label><textarea id="fDesc" rows="3">'+e(a?a.description:'')+'</textarea></div>' +
-      '<div class="fg full"><label>Hook enfant</label><input id="fHook" value="'+e(a?a.hook_child:'')+'" placeholder="Tu veux construire quelque chose ?"></div>' +
-      '<div class="fg full"><label>Moods (1 ou plusieurs)</label><div class="pills" id="moodPills">'+MOODS.map(function(M){var sel=(a&&a.moods&&a.moods.indexOf(M.id)!==-1);return '<span class="pill'+(sel?' on':'')+'" data-v="'+M.id+'">'+M.emoji+' '+M.label+'</span>';}).join('')+'</div></div>' +
-      '<div class="fg"><label>Lieu</label><select id="fLoc"><option value="indoor"'+(a&&a.location==='indoor'?' selected':'')+'>🏠 Intérieur</option><option value="outdoor"'+(a&&a.location==='outdoor'?' selected':'')+'>🌿 Extérieur</option><option value="both"'+(a&&a.location==='both'?' selected':'')+'>🌍 Les deux</option></select></div>' +
-      '<div class="fg full"><label>Tranches d\'âge</label><div class="pills" id="agePills">'+AGES.map(function(ag){return '<span class="pill'+(ages.indexOf(ag[0])!==-1?' on':'')+'" data-v="'+ag[0]+'">'+ag[1]+'</span>';}).join('')+'</div></div>' +
-      '<div class="fg full"><label>Matériel (un par ligne)</label><textarea id="fMat" rows="4">'+e(matsClean.join('\n'))+'</textarea></div>' +
-      '<div class="fg full"><label>Étapes (une par ligne)</label><textarea id="fSteps" rows="5">'+e(stepsClean.join('\n'))+'</textarea></div>' +
-      '<div class="fg full"><label>Conseil psychomotricien</label><textarea id="fPsycho" rows="3">'+e(a?a.psycho_tip:'')+'</textarea></div>' +
-      '<div class="fg full"><label>Adaptations par âge</label>' +
-        '<div style="display:flex;flex-direction:column;gap:8px" id="ageAdapt">' +
-          ['0-6m','6-12m','1-3','3-6','6-9','9+'].map(function(ag) {
-            var labels = {'0-6m':'0–6 mois','6-12m':'6–12 mois','1-3':'1–3 ans','3-6':'3–6 ans','6-9':'6–9 ans','9+':'9 ans+'};
-            var adaptations = {};
-            try { adaptations = JSON.parse(a && a.age_adaptations ? a.age_adaptations : '{}'); } catch(e) {}
-            return '<div style="display:flex;flex-direction:column;gap:4px">' +
-              '<label style="font-size:11px;font-weight:600;color:var(--muted)">' + labels[ag] + '</label>' +
-              '<textarea id="adapt-'+ag+'" rows="2" placeholder="Comment adapter pour '+labels[ag]+' ?" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font:13px Inter,sans-serif;resize:vertical">'+e(adaptations[ag]||'')+'</textarea>' +
-            '</div>';
-          }).join('') +
+    '</div>' +
+
+    // SECTION 2 — Quand la proposer
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">2</span>Quand la proposer</div>' +
+      '<div class="section-desc">Le contexte dans lequel l\'activité fonctionne</div>' +
+      '<div class="grid">' +
+        '<div class="fg"><label>Durée min (min)</label><input id="fDurMin" type="number" min="1" value="'+durMin+'" placeholder="10"></div>' +
+        '<div class="fg"><label>Durée max / habituelle (min)</label><input id="fDurMax" type="number" min="1" value="'+durMax+'" placeholder="15"></div>' +
+        '<div class="fg"><label>Lieu</label><select id="fLoc"><option value="indoor"'+(a&&a.location==='indoor'?' selected':'')+'>🏠 Intérieur</option><option value="outdoor"'+(a&&a.location==='outdoor'?' selected':'')+'>🌿 Extérieur</option><option value="both"'+(a&&a.location==='both'?' selected':'')+'>🌍 Les deux</option></select></div>' +
+        '<div class="fg"></div>' +
+        '<div class="fg full"><label>Tranches d\'âge</label><div class="pills" id="agePills">'+AGES.map(function(ag){return '<span class="pill'+(ages.indexOf(ag[0])!==-1?' on':'')+'" data-v="'+ag[0]+'">'+ag[1]+'</span>';}).join('')+'</div></div>' +
+        '<div class="fg full"><label>Moods (1 ou plusieurs)</label><div class="pills" id="moodPills">'+MOODS.map(function(M){var sel=(a&&a.moods&&a.moods.indexOf(M.id)!==-1);return '<span class="pill'+(sel?' on':'')+'" data-v="'+M.id+'">'+M.emoji+' '+M.label+'</span>';}).join('')+'</div></div>' +
+        '<div class="fg full"><label>Intensité physique</label>'+renderSeg('intensity', INTENSITY, a?a.physical_intensity:null)+'</div>' +
+        '<div class="fg full"><label>Préparation nécessaire</label>'+renderSeg('prep', PREP, a?a.prep_level:null)+'</div>' +
+        '<div class="fg full"><label>Implication du parent</label>'+renderSeg('involvement', INVOLVEMENT, a?a.parent_involvement:null)+'</div>' +
+        '<div class="fg"><label>Difficulté</label>'+renderSeg('difficulty', DIFFICULTY, a&&a.difficulty!=null?String(a.difficulty):null)+'</div>' +
+        '<div class="fg"><label>Liberté laissée à l\'enfant</label>'+renderSeg('freedom', FREEDOM, a?a.child_freedom:null)+'</div>' +
+      '</div>' +
+    '</div>' +
+
+    // SECTION 3 — Ce qu'elle fait explorer
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">3</span>Ce qu\'elle fait explorer</div>' +
+      '<div class="section-desc">Développement & éveil — jeu d\'abord, développement derrière</div>' +
+      '<div class="score-legend">0 = non sollicité &nbsp;·&nbsp; 1 = secondaire &nbsp;·&nbsp; 2 = important &nbsp;·&nbsp; 3 = central</div>' +
+      '<div class="score-grid" id="scoreGrid">' + DEV_DIMS.map(function(d){ return renderScoreRow(d, scores[d.id]!=null?scores[d.id]:null); }).join('') + '</div>' +
+      '<div class="top-dims" id="topDims">' + topDimsText(scores) + '</div>' +
+    '</div>' +
+
+    // SECTION 4 — Comment la réaliser
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">4</span>Comment la réaliser</div>' +
+      '<div class="section-desc">Matériel et déroulé</div>' +
+      '<div class="grid">' +
+        '<div class="fg full"><label>Matériel (un par ligne)</label><textarea id="fMat" rows="4">'+e(matsClean.join('\n'))+'</textarea></div>' +
+        '<div class="fg full"><label>Étapes (une par ligne)</label><textarea id="fSteps" rows="5">'+e(stepsClean.join('\n'))+'</textarea></div>' +
+      '</div>' +
+    '</div>' +
+
+    // SECTION 5 — Regard psychomotricien
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">5</span>Regard psychomotricien</div>' +
+      '<div class="section-desc">Expertise interne — pas forcément affichée au parent</div>' +
+      '<div class="grid">' +
+        '<div class="fg full"><label>Conseil psychomotricien</label><textarea id="fPsycho" rows="3">'+e(a?a.psycho_tip:'')+'</textarea></div>' +
+        '<div class="fg full"><label>Variante plus facile</label><textarea id="fEasier" rows="2" placeholder="Comment simplifier cette activité ?">'+e(a?a.easier_variant:'')+'</textarea></div>' +
+        '<div class="fg full"><label>Variante plus difficile</label><textarea id="fHarder" rows="2" placeholder="Comment augmenter légèrement le défi ?">'+e(a?a.harder_variant:'')+'</textarea></div>' +
+        '<div class="fg full"><label>Adaptations par âge</label><div id="adaptBlock">'+renderAdaptBlock(ages, adaptData)+'</div></div>' +
+        '<div class="fg full"><label>Tags experts</label>' +
+          '<div class="tags-box" id="tagsBox"><span id="tagsChips"></span><input class="tags-input" id="tagInput" placeholder="Ajouter un tag et appuyer sur Entrée"></div>' +
         '</div>' +
       '</div>' +
-      '<div class="fg full"><label>Statut</label><div class="toggle-row"><label class="toggle"><input type="checkbox" id="fPrem"'+(a&&a.is_premium?' checked':'')+' ><span class="track"></span></label><span id="premLbl">'+(a&&a.is_premium?'Premium 🔒':'Gratuit')+'</span></div></div>' +
+    '</div>' +
+
+    // SECTION 6 — Publication
+    '<div class="section">' +
+      '<div class="section-title"><span class="section-num">6</span>Publication</div>' +
+      '<div class="section-desc">Statut de diffusion</div>' +
+      '<div class="grid">' +
+        '<div class="fg full"><label>Statut</label><div class="toggle-row"><label class="toggle"><input type="checkbox" id="fPrem"'+(a&&a.is_premium?' checked':'')+' ><span class="track"></span></label><span id="premLbl">'+(a&&a.is_premium?'Premium 🔒':'Gratuit')+'</span></div></div>' +
+      '</div>' +
     '</div>';
 
   document.getElementById('fPrem').addEventListener('change', function() {
@@ -324,11 +495,68 @@ function renderForm(a) {
   });
   document.getElementById('agePills').addEventListener('click', function(ev) {
     var p = ev.target.closest('.pill');
-    if (p) p.classList.toggle('on');
+    if (!p) return;
+    p.classList.toggle('on');
+    refreshAdaptBlock();
   });
   document.getElementById('moodPills').addEventListener('click', function(ev) {
     var p = ev.target.closest('.pill');
     if (p) p.classList.toggle('on');
+  });
+
+  // Segmented controls (intensité, préparation, implication, difficulté, liberté)
+  document.querySelectorAll('.seg').forEach(function(seg) {
+    seg.addEventListener('click', function(ev) {
+      var b = ev.target.closest('.seg-btn');
+      if (!b) return;
+      var wasOn = b.classList.contains('on');
+      seg.querySelectorAll('.seg-btn').forEach(function(x) { x.classList.remove('on'); });
+      if (!wasOn) b.classList.add('on');
+    });
+  });
+
+  // Scores Développement & éveil (0–3, re-cliquer désélectionne)
+  document.getElementById('scoreGrid').addEventListener('click', function(ev) {
+    var btn = ev.target.closest('.score-btn');
+    if (!btn) return;
+    var box = btn.parentElement;
+    var wasOn = btn.classList.contains('on');
+    box.querySelectorAll('.score-btn').forEach(function(x) { x.classList.remove('on'); });
+    if (!wasOn) btn.classList.add('on');
+    document.getElementById('topDims').textContent = topDimsText(getScores());
+  });
+
+  // Adaptations par âge : uniquement pour les tranches sélectionnées, sans perdre les autres
+  function refreshAdaptBlock() {
+    document.querySelectorAll('.adapt-ta').forEach(function(ta) { adaptData[ta.dataset.age] = ta.value; });
+    var selected = [];
+    document.querySelectorAll('#agePills .pill.on').forEach(function(p) { selected.push(p.dataset.v); });
+    document.getElementById('adaptBlock').innerHTML = renderAdaptBlock(selected, adaptData);
+  }
+  document.getElementById('adaptBlock').addEventListener('input', function(ev) {
+    var t = ev.target.closest('.adapt-ta');
+    if (t) adaptData[t.dataset.age] = t.value;
+  });
+
+  // Tags experts (chips)
+  function renderTagsChips() {
+    document.getElementById('tagsChips').innerHTML = tagsArr.map(function(t, i) {
+      return '<span class="tag-chip">'+e(t)+'<button type="button" data-i="'+i+'">×</button></span>';
+    }).join('');
+  }
+  renderTagsChips();
+  document.getElementById('tagsChips').addEventListener('click', function(ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    tagsArr.splice(parseInt(b.dataset.i, 10), 1);
+    renderTagsChips();
+  });
+  document.getElementById('tagInput').addEventListener('keydown', function(ev) {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var v = this.value.trim();
+    if (v && tagsArr.indexOf(v) === -1) { tagsArr.push(v); renderTagsChips(); }
+    this.value = '';
   });
 
   // Upload photo
@@ -386,6 +614,19 @@ function saveForm(id, imageUrl) {
   if (!title) { toast('Le titre est obligatoire', 'err'); return; }
   var ages = [];
   document.querySelectorAll('#agePills .pill.on').forEach(function(p){ ages.push(p.dataset.v); });
+
+  // Durée min/max : si une seule des deux est renseignée, on reflète l'autre
+  // pour rester cohérent (fallback propre, aucune donnée perdue).
+  var durMin = parseInt(document.getElementById('fDurMin').value, 10) || null;
+  var durMax = parseInt(document.getElementById('fDurMax').value, 10) || null;
+  if (durMin && !durMax) durMax = durMin;
+  if (durMax && !durMin) durMin = durMax;
+
+  // Adaptations par âge : formAdaptData contient déjà toutes les tranches
+  // (y compris celles actuellement masquées) grâce au listener 'input' de renderForm.
+  // On resynchronise les champs visibles par sécurité avant lecture.
+  document.querySelectorAll('#adaptBlock .adapt-ta').forEach(function(ta) { formAdaptData[ta.dataset.age] = ta.value.trim(); });
+
   var payload = {
     emoji: document.getElementById('fEmoji').value.trim(),
     title: title,
@@ -393,18 +634,25 @@ function saveForm(id, imageUrl) {
     hook_child: document.getElementById('fHook').value.trim(),
     moods: Array.from(document.querySelectorAll('#moodPills .pill.on')).map(function(p) { return p.dataset.v; }),
     location: document.getElementById('fLoc').value,
-    duration: parseInt(document.getElementById('fDur').value)||null,
+    duration: durMax || durMin || null, // colonne legacy conservée pour compatibilité
+    duration_min: durMin,
+    duration_max: durMax,
     age_ranges: ages,
     materials: document.getElementById('fMat').value.split('\n').map(function(s){return s.trim();}).filter(Boolean),
     steps: JSON.stringify(document.getElementById('fSteps').value.split('\n').map(function(s){return s.trim();}).filter(Boolean)),
     psycho_tip: document.getElementById('fPsycho').value.trim(),
+    easier_variant: document.getElementById('fEasier').value.trim(),
+    harder_variant: document.getElementById('fHarder').value.trim(),
     is_premium: document.getElementById('fPrem').checked,
     image_url: imageUrl || null,
-    age_adaptations: JSON.stringify(['0-6m','6-12m','1-3','3-6','6-9','9+'].reduce(function(acc, ag) {
-      var val = document.getElementById('adapt-'+ag);
-      if (val && val.value.trim()) acc[ag] = val.value.trim();
-      return acc;
-    }, {}))
+    age_adaptations: JSON.stringify(formAdaptData),
+    physical_intensity: segVal('intensity'),
+    prep_level: segVal('prep'),
+    parent_involvement: segVal('involvement'),
+    difficulty: segVal('difficulty') ? parseInt(segVal('difficulty'), 10) : null,
+    child_freedom: segVal('freedom'),
+    dev_scores: getScores(), // colonne jsonb : on envoie l'objet tel quel, pas de stringify
+    expert_tags: formTags
   };
   var p = id ? api('activities?id=eq.'+id, 'PATCH', payload) : api('activities', 'POST', payload);
   p.then(function(res) {
